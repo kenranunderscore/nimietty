@@ -87,7 +87,7 @@ proc spawn*(): Pty =
   if p == -1:
     failWithLastOsError("fork")
   elif p == 0:
-    startShell(pty, "/bin/dash")
+    startShell(pty, "bash")
   else:
     setNonBlocking(pty.masterFd)
     discard posix.close(pty.slaveFd)
