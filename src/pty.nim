@@ -55,10 +55,10 @@ proc startShell(pty: Pty, shell: cstring) =
   # We don't need the master FD here
   discard posix.close(pty.masterFd)
   # TODO Might need the PID later
-  # discard posix.setsid()
+  discard posix.setsid()
   redirectStandardStream(pty.slaveFd, posix.STDIN_FILENO)
   redirectStandardStream(pty.slaveFd, posix.STDOUT_FILENO)
-  # redirectStandardStream(pty.slaveFd, posix.STDERR_FILENO)
+  redirectStandardStream(pty.slaveFd, posix.STDERR_FILENO)
   # makeControllingTerminal(pty)
   # The slave FD is no longer needed now either
   discard posix.close(pty.slaveFd)
@@ -69,7 +69,6 @@ proc startShell(pty: Pty, shell: cstring) =
   posix.signal(posix.SIGQUIT, posix.SIG_DFL)
   posix.signal(posix.SIGTERM, posix.SIG_DFL)
   posix.signal(posix.SIGALRM, posix.SIG_DFL)
-  echo "foobar?"
   if posix.execvp(shell, nil) == -1:
     failWithLastOsError("execvp")
 

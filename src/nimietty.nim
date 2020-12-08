@@ -1,35 +1,69 @@
 import sdl2
 from pty import nil
 from os import sleep
+from posix import nil
+import sequtils
+
+func toString(arr: openArray[uint8]): string =
+  let res = newStringOfCap(len(arr))
+  for i in arr:
+    add(result, char(i))
 
 when isMainModule:
   let tty = pty.spawn()
-  sleep(2000)
-  echo "gogogo"
+  let nFd: cint = tty.masterFd + 1
+  sleep(1000)
   var file: File
   if open(file, tty.masterFd, fmReadWriteExisting):
-    echo "true"
-    var buf: array[100, uint8]
-    var actualLen = readBytes(file, buf, 0, 100)
-    echo "actualLen = ", actualLen
-  else:
-    echo "booooo"
-  # TODO React to errors
-  discard sdl2.init(sdl2.INIT_EVERYTHING)
-  let windowFlags = sdl2.SDL_WINDOW_SHOWN or sdl2.SDL_WINDOW_OPENGL
-  let window = sdl2.createWindow("Foo", 100, 100, 640, 480, windowFlags)
-  let rendererFlags = sdl2.Renderer_Accelerated or sdl2.Renderer_PresentVsync or sdl2.Renderer_TargetTexture
-  let renderer = sdl2.createRenderer(window, -1, rendererFlags)
-  var evt = sdl2.defaultEvent
-  var running = true
-  while running:
-    while sdl2.pollEvent(evt):
-      if evt.kind == sdl2.QuitEvent:
-        running = false
-        break
+    echo "we're good"
+    # TODO React to errors
+    discard sdl2.init(sdl2.INIT_EVERYTHING)
+    echo "init'd"
+    let windowFlags = sdl2.SDL_WINDOW_SHOWN or sdl2.SDL_WINDOW_OPENGL
+    let window = sdl2.createWindow("Foo", 100, 100, 640, 480, windowFlags)
+    let rendererFlags = sdl2.Renderer_Accelerated or sdl2.Renderer_PresentVsync or sdl2.Renderer_TargetTexture
+    let renderer = sdl2.createRenderer(window, -1, rendererFlags)
+    var evt = sdl2.defaultEvent
+    var running = true
+    var counter = 0
+    while running:
+      counter += 1
+      sleep(200)
+      while sdl2.pollEvent(evt):
+        if evt.kind == sdl2.QuitEvent:
+          echo "quitting..."
+          running = false
+          break
+
+      # Read from PTY
+      var fds: posix.TFdSet
+      posix.FD_ZERO(fds)
+      posix.FD_SET(tty.masterFd, fds)
+      var tv: posix.Timeval
+      if posix.select(nFd, addr(fds), nil, nil, addr(tv)) > 0:
+        if posix.FD_ISSET(tty.masterFd, fds) > 0:
+          var buf: array[250, uint8]
+          # let i = file.readBuffer(addr(buf), 1)
+          discard posix.read(tty.masterFd, addr(buf), 250)
+          echo "got:\n", toString(buf)
+        else:
+          echo "not set"
+      # else:
+      #   echo "select failed"
+
+      if counter == 15:
+        echo "writing..."
+        file.write("l")
+        file.write("s")
+        file.write("\n")
+
+      # Draw the terminal window
       renderer.setDrawColor 0,0,50,255
       renderer.clear()
       renderer.present()
-  destroy renderer
-  destroy window
-  close(file)
+
+    destroy renderer
+    destroy window
+    close(file)
+  else:
+    echo "could not open master fd as file"
