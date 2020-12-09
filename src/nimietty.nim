@@ -2,7 +2,6 @@ import sdl2
 from pty import nil
 from os import sleep
 from posix import nil
-import sequtils
 
 func toString(arr: openArray[uint8]): string =
   let res = newStringOfCap(len(arr))
