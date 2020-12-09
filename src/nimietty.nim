@@ -10,11 +10,6 @@ type
     grid: array[10, array[80, char]]
     pos: CursorPosition
 
-func toString(arr: openArray[uint8]): string =
-  let res = newStringOfCap(len(arr))
-  for i in arr:
-    add(result, char(i))
-
 when isMainModule:
   let tty = pty.spawn()
   let nFd: cint = tty.masterFd + 1
