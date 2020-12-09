@@ -59,10 +59,15 @@ proc startShell(pty: Pty, shell: cstring) =
   redirectStandardStream(pty.slaveFd, posix.STDIN_FILENO)
   redirectStandardStream(pty.slaveFd, posix.STDOUT_FILENO)
   redirectStandardStream(pty.slaveFd, posix.STDERR_FILENO)
+  # TODO `dash` cannot access tty without this. need to figure out where
+  # and when to do the following correctly:
   # makeControllingTerminal(pty)
+
   # The slave FD is no longer needed now either
   discard posix.close(pty.slaveFd)
-  # Still have to figure out if this is really necessary
+  # TODO Still have to figure out if this is really necessary
+  # TODO If necessary, then use sigaction(2) instead, as explained
+  # in signal(2).
   posix.signal(posix.SIGCHLD, posix.SIG_DFL)
   posix.signal(posix.SIGHUP, posix.SIG_DFL)
   posix.signal(posix.SIGINT, posix.SIG_DFL)
@@ -80,6 +85,8 @@ proc setNonBlocking(masterFd: cint) =
   if posix.fcntl(masterFd, posix.F_SETFL, mode) == -1:
     failWithLastOsError("fcntl(.., F_SETFL)")
 
+# TODO Handle failure case by returning a fitting error type,
+# or even use Nim's effect system perhaps?
 proc spawn*(): Pty =
   let pty = openPty()
   let p = posix.fork()
