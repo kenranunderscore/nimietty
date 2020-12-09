@@ -3,6 +3,13 @@ from pty import nil
 from os import sleep
 from posix import nil
 
+type
+  CursorPosition = object
+    x, y: uint8
+  TerminalState = object
+    grid: array[10, array[80, char]]
+    pos: CursorPosition
+
 func toString(arr: openArray[uint8]): string =
   let res = newStringOfCap(len(arr))
   for i in arr:
@@ -11,13 +18,12 @@ func toString(arr: openArray[uint8]): string =
 when isMainModule:
   let tty = pty.spawn()
   let nFd: cint = tty.masterFd + 1
-  sleep(1000)
   var file: File
   if open(file, tty.masterFd, fmReadWriteExisting):
-    echo "we're good"
+    var state = TerminalState(pos: CursorPosition(x: 0, y: 0))
     # TODO React to errors
     discard sdl2.init(sdl2.INIT_EVERYTHING)
-    echo "init'd"
+    echo "SDL initialized successfully"
     let windowFlags = sdl2.SDL_WINDOW_SHOWN or sdl2.SDL_WINDOW_OPENGL
     let window = sdl2.createWindow("Foo", 100, 100, 640, 480, windowFlags)
     let rendererFlags = sdl2.Renderer_Accelerated or sdl2.Renderer_PresentVsync or sdl2.Renderer_TargetTexture
@@ -25,9 +31,9 @@ when isMainModule:
     var evt = sdl2.defaultEvent
     var running = true
     var counter = 0
+    var wrapped = false
     while running:
       counter += 1
-      sleep(200)
       while sdl2.pollEvent(evt):
         if evt.kind == sdl2.QuitEvent:
           echo "quitting..."
@@ -38,19 +44,36 @@ when isMainModule:
       var fds: posix.TFdSet
       posix.FD_ZERO(fds)
       posix.FD_SET(tty.masterFd, fds)
+      # TODO stop using Timeval of 0 to make select block again, as it should
       var tv: posix.Timeval
       if posix.select(nFd, addr(fds), nil, nil, addr(tv)) > 0:
         if posix.FD_ISSET(tty.masterFd, fds) > 0:
-          var buf: array[250, uint8]
-          # let i = file.readBuffer(addr(buf), 1)
-          discard posix.read(tty.masterFd, addr(buf), 250)
-          echo "got:\n", toString(buf)
+          var buf: array[1, uint8]
+          if posix.read(tty.masterFd, addr(buf), 1) <= 0:
+            echo "nothing to read"
+            quit(1)
+          let c = chr(buf[0])
+          if c == '\r':
+            state.pos.x = 0
+          else:
+            if c != '\n':
+              state.grid[state.pos.y][state.pos.x] = c
+              inc(state.pos.x)
+              if state.pos.x >= 80:
+                state.pos.x = 0
+                inc(state.pos.y)
+                wrapped = true
+              else:
+                wrapped = false
+            elif not wrapped:
+              inc(state.pos.y)
+              wrapped = false
+          # echo "got:\n", c
         else:
           echo "not set"
-      # else:
-      #   echo "select failed"
 
-      if counter == 15:
+      # Write some dummy stuff to the PTY
+      if counter == 200:
         echo "writing..."
         file.write("l")
         file.write("s")
@@ -61,6 +84,7 @@ when isMainModule:
       renderer.clear()
       renderer.present()
 
+    echo "final state: ", state.grid[0..2]
     destroy renderer
     destroy window
     close(file)
