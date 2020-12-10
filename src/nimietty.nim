@@ -10,12 +10,53 @@ type
     grid: array[10, array[80, char]]
     pos: CursorPosition
 
+var
+  state = TerminalState(pos: CursorPosition(x: 0, y: 0))
+
+proc readPtyAndUpdateState(fd: cint) =
+  var wrapped = false
+  let nFd: cint = fd + 1
+  var fds: posix.TFdSet
+  posix.FD_ZERO(fds)
+  posix.FD_SET(fd, fds)
+  # TODO stop using Timeval of 0 to make select block again, as it should
+  var tv: posix.Timeval
+  # TODO how to find a good value here? `BUFSIZ` maybe?
+  const bufferSize = 512
+  while posix.select(nFd, addr(fds), nil, nil, addr(tv)) > 0:
+    if posix.FD_ISSET(fd, fds) > 0:
+      var buf: array[bufferSize, uint8]
+      let bytesRead = posix.read(fd, addr(buf), bufferSize)
+      if bytesRead == 0:
+        echo "Nothing to read, quitting"
+        quit(0)
+      elif bytesRead == -1:
+        echo "Failed to read from PTY"
+        quit(1)
+      for b in buf[0 .. bytesRead-1]:
+        let c = chr(b)
+        if c == '\r':
+          state.pos.x = 0
+        else:
+          if c != '\n':
+            state.grid[state.pos.y][state.pos.x] = c
+            inc(state.pos.x)
+            if state.pos.x >= 80:
+              state.pos.x = 0
+              inc(state.pos.y)
+              wrapped = true
+            else:
+              wrapped = false
+          elif not wrapped:
+            inc(state.pos.y)
+            wrapped = false
+    else:
+      echo "not set"
+
 when isMainModule:
   let tty = pty.spawn()
-  let nFd: cint = tty.masterFd + 1
   var file: File
   if open(file, tty.masterFd, fmReadWriteExisting):
-    var state = TerminalState(pos: CursorPosition(x: 0, y: 0))
     # TODO React to errors
     discard sdl2.init(sdl2.INIT_EVERYTHING)
     echo "SDL initialized successfully"
@@ -26,7 +67,6 @@ when isMainModule:
     var evt = sdl2.defaultEvent
     var running = true
     var counter = 0
-    var wrapped = false
     while running:
       counter += 1
       while sdl2.pollEvent(evt):
@@ -35,43 +75,7 @@ when isMainModule:
           running = false
           break
 
-      # Read from PTY
-      var fds: posix.TFdSet
-      posix.FD_ZERO(fds)
-      posix.FD_SET(tty.masterFd, fds)
-      # TODO stop using Timeval of 0 to make select block again, as it should
-      var tv: posix.Timeval
-      # TODO how to find a good value here? `BUFSIZ` maybe?
-      const bufferSize = 512
-      while posix.select(nFd, addr(fds), nil, nil, addr(tv)) > 0:
-        if posix.FD_ISSET(tty.masterFd, fds) > 0:
-          var buf: array[bufferSize, uint8]
-          let bytesRead = posix.read(tty.masterFd, addr(buf), bufferSize)
-          if bytesRead == 0:
-            echo "Nothing to read, quitting"
-            quit(0)
-          elif bytesRead == -1:
-            echo "Failed to read from PTY"
-            quit(1)
-          for b in buf[0 .. bytesRead-1]:
-            let c = chr(b)
-            if c == '\r':
-              state.pos.x = 0
-            else:
-              if c != '\n':
-                state.grid[state.pos.y][state.pos.x] = c
-                inc(state.pos.x)
-                if state.pos.x >= 80:
-                  state.pos.x = 0
-                  inc(state.pos.y)
-                  wrapped = true
-                else:
-                  wrapped = false
-              elif not wrapped:
-                inc(state.pos.y)
-                wrapped = false
-        else:
-          echo "not set"
+      readPtyAndUpdateState(tty.masterFd)
 
       # Write some dummy stuff to the PTY
       if counter == 200:
