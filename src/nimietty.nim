@@ -98,6 +98,11 @@ when isMainModule:
           echo "quitting..."
           running = false
           break
+        elif evt.kind == sdl2.KeyDown:
+          if evt.key.keysym.sym == sdl2.K_ESCAPE:
+            echo "ESC pressed, quitting"
+            running = false
+          echo evt.key.keysym.sym
 
       # Write some dummy stuff to the PTY
       if counter == 200:
