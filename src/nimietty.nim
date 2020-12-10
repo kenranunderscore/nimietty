@@ -19,8 +19,6 @@ proc readPtyAndUpdateState(fds: ReaderFds) =
   var wrapped = false
   let nFd: cint = max(fds.pty, fds.commPipe) + 1
   var readable: posix.TFdSet
-  # TODO stop using Timeval of 0 to make select block again, as it should
-  var tv: posix.Timeval
   # TODO how to find a good value here? `BUFSIZ` maybe?
   const bufferSize = 512
   while true:
