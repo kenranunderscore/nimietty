@@ -104,13 +104,6 @@ when isMainModule:
             running = false
           echo evt.key.keysym.sym
 
-      # Write some dummy stuff to the PTY
-      if counter == 200:
-        echo "writing..."
-        file.write("l")
-        file.write("s")
-        file.write("\n")
-
       # Draw the terminal window
       renderer.setDrawColor 0,0,50,255
       renderer.clear()
