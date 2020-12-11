@@ -72,7 +72,9 @@ proc startShell(pty: Pty, shell: cstring) =
   posix.signal(posix.SIGQUIT, posix.SIG_DFL)
   posix.signal(posix.SIGTERM, posix.SIG_DFL)
   posix.signal(posix.SIGALRM, posix.SIG_DFL)
-  if posix.execvp(shell, nil) == -1:
+  var args = allocCStringArray(@[$shell])
+  defer: deallocCStringArray(args)
+  if posix.execvp(shell, args) == -1:
     failWithLastOsError("execvp")
 
 proc setNonBlocking(masterFd: cint) =
