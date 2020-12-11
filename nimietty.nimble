@@ -9,5 +9,5 @@ bin           = @["nimietty"]
 
 # Dependencies
 
-requires "nim >= 1.0.6"
+requires "nim >= 1.4.2"
 requires "sdl2"
