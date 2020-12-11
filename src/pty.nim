@@ -59,9 +59,7 @@ proc startShell(pty: Pty, shell: cstring) =
   redirectStandardStream(pty.slaveFd, posix.STDIN_FILENO)
   redirectStandardStream(pty.slaveFd, posix.STDOUT_FILENO)
   redirectStandardStream(pty.slaveFd, posix.STDERR_FILENO)
-  # TODO `dash` cannot access tty without this. need to figure out where
-  # and when to do the following correctly:
-  # makeControllingTerminal(pty)
+  makeControllingTerminal(pty)
 
   # The slave FD is no longer needed now either
   discard posix.close(pty.slaveFd)
