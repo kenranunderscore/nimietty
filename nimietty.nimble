@@ -10,4 +10,5 @@ bin           = @["nimietty"]
 # Dependencies
 
 requires "nim >= 1.4.2"
-requires "sdl2"
+requires "staticglfw"
+requires "opengl"

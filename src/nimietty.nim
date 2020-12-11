@@ -1,4 +1,5 @@
-import sdl2
+import staticglfw as glfw
+import opengl
 from pty import nil
 from posix import nil
 
@@ -67,15 +68,20 @@ when isMainModule:
   var file: File
   if open(file, tty.masterFd, fmReadWriteExisting):
     # TODO React to errors
-    discard sdl2.init(sdl2.INIT_EVERYTHING)
-    echo "SDL initialized successfully"
-    let windowFlags = sdl2.SDL_WINDOW_SHOWN or sdl2.SDL_WINDOW_OPENGL
-    let window = sdl2.createWindow("Foo", 100, 100, 640, 480, windowFlags)
-    let rendererFlags = sdl2.Renderer_Accelerated or sdl2.Renderer_PresentVsync or sdl2.Renderer_TargetTexture
-    let renderer = sdl2.createRenderer(window, -1, rendererFlags)
-    var evt = sdl2.defaultEvent
-    var running = true
-    var counter = 0
+    discard glfw.init()
+    defer: glfw.terminate()
+    echo "GLFW initialized successfully"
+    # glfwWindowHint(GLFWContextVersionMajor, 3)
+    # glfwWindowHint(GLFWContextVersionMinor, 3)
+    # glfwWindowHint(GLFWOpenglForwardCompat, GLFW_TRUE) # Used for Mac
+    # glfwWindowHint(GLFWOpenglProfile, GLFW_OPENGL_CORE_PROFILE)
+    # glfwWindowHint(GLFWResizable, GLFW_FALSE)
+    let window = glfw.createWindow(800, 600, "foo", nil, nil)
+    defer: window.destroyWindow()
+    # discard window.setKeyCallback(keyProc)
+    window.makeContextCurrent()
+    opengl.loadExtensions()
+
     # Run PTY reader and state update in a background thread.
     # We open a UNIX pipe to communicate the end of the main program
     # with the background/reader thread.
@@ -91,30 +97,16 @@ when isMainModule:
     createThread(reader, readPtyAndUpdateState, ReaderFds(pty: tty.masterFd, commPipe: pipeFds[0]))
     defer: joinThread(reader)
 
-    while running:
-      counter += 1
-      while sdl2.pollEvent(evt):
-        if evt.kind == sdl2.QuitEvent:
-          echo "quitting..."
-          running = false
-          break
-        elif evt.kind == sdl2.KeyDown:
-          if evt.key.keysym.sym == sdl2.K_ESCAPE:
-            echo "ESC pressed, quitting"
-            running = false
-          echo evt.key.keysym.sym
-
-      # Draw the terminal window
-      renderer.setDrawColor 0,0,50,255
-      renderer.clear()
-      renderer.present()
+    while glfw.windowShouldClose(window) == 0:
+      glfw.pollEvents()
+      glClearColor(0.68f, 1f, 0.34f, 1f)
+      glClear(GL_COLOR_BUFFER_BIT)
+      window.swapBuffers()
 
     # FIXME
     var foo = "foo"
     discard posix.write(pipeFds[1], addr(foo), 4)
     echo "final state: ", state.grid[0..2]
-    destroy renderer
-    destroy window
     close(file)
   else:
     echo "could not open master fd as file"
