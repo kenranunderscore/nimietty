@@ -63,6 +63,10 @@ proc readPtyAndUpdateState(fds: ReaderFds) =
     else:
       echo "not set"
 
+proc keyCallback(window: glfw.Window, key: cint, scancode: cint, action: cint, modifiers: cint) {.cdecl.} =
+  if key == glfw.KEY_ESCAPE:
+    window.setWindowShouldClose(1)
+
 when isMainModule:
   let tty = pty.spawn()
   var file: File
@@ -78,7 +82,7 @@ when isMainModule:
     # glfwWindowHint(GLFWResizable, GLFW_FALSE)
     let window = glfw.createWindow(800, 600, "foo", nil, nil)
     defer: window.destroyWindow()
-    # discard window.setKeyCallback(keyProc)
+    discard window.setKeyCallback(keyCallback)
     window.makeContextCurrent()
     opengl.loadExtensions()
 
