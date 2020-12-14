@@ -1,8 +1,8 @@
 from os import nil
 from posix import nil
 
-# The following four POSIX functions are needed to
-# allocate a PTY as a master/slave FD pair.
+# The following four POSIX functions are needed to allocate a PTY as a
+# master/slave FD pair.
 proc posixOpenpt(flags: cint): cint
     {.importc: "posix_openpt", header: """#include <stdlib.h>
                                           #include <fcntl.h>""".}
@@ -26,6 +26,10 @@ type
   Pty* = object
     masterFd*: cint
     slaveFd: cint
+
+# The PID of the child process that we fork. This needs to be a global because
+# we cannot register a closure as POSIX signal handler in Nim.
+var childPid: cint
 
 proc openPty(): Pty =
   var masterFd = posixOpenpt(posix.O_RDWR or posix.O_NOCTTY)
@@ -85,6 +89,21 @@ proc setNonBlocking(masterFd: cint) =
   if posix.fcntl(masterFd, posix.F_SETFL, mode) == -1:
     failWithLastOsError("fcntl(.., F_SETFL)")
 
+proc handleSigchld(sigNum: cint) {.noconv.} =
+  var stat: cint
+  let p: posix.Pid = posix.waitpid(childPid, stat, posix.WNOHANG)
+  if p < 0:
+    echo "Waiting for PID failed: ", posix.errno
+    quit(posix.errno)
+  if childPid != p:
+    return
+  if posix.WIFEXITED(stat) and posix.WEXITSTATUS(stat) > 0:
+    echo "Child exited with status ", posix.WEXITSTATUS(stat)
+    quit(1)
+  elif posix.WIFSIGNALED(stat):
+    echo "Child received signal ", posix.WTERMSIG(stat)
+    quit(0)
+
 # TODO Handle failure case by returning a fitting error type,
 # or even use Nim's effect system perhaps?
 proc spawn*(): Pty =
@@ -95,6 +114,8 @@ proc spawn*(): Pty =
   elif p == 0:
     startShell(pty, "dash")
   else:
+    childPid = p
     setNonBlocking(pty.masterFd)
     discard posix.close(pty.slaveFd)
+    posix.signal(posix.SIGCHLD, handleSigchld)
     return pty
