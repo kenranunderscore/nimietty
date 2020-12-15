@@ -4,6 +4,7 @@ pkgs.mkShell {
   buildInputs = [
     pkgs.dash
     pkgs.libGL
+    pkgs.freetype
     # FIXME this obviously doesn't work on macOS
     pkgs.xorg.libXcursor
     pkgs.xorg.libXrandr
