@@ -107,26 +107,37 @@ proc renderText(chars: Table[int, Character], vao: GLuint, vbo: GLuint, p: GLuin
   glBindVertexArray(0)
   glBindTexture(GL_TEXTURE_2D, 0)
 
-proc main() =
-  let tty = pty.spawn()
-  # TODO React to errors
-  discard glfw.init()
-  defer: glfw.terminate()
-  echo "GLFW initialized successfully"
-  # FIXME Why don't the other "usual" window hints work?
-  # Setting the version to anything higher than 3.1 or setting the core
-  # profile will lead to nothing being rendered.
+## Initialize GLFW. Quit on failure as we cannot do anything afterwards.
+proc initGlfw() =
+  echo "GLFW::Initializing"
+  let res = glfw.init()
+  if res == 0:
+    echo "GLFW::Initialization failed"
+    quit(-1)
 
+# Terminate and cleanup the GLFW session.
+proc terminateGlfw() =
+  echo "GLFW::Terminating"
+  glfw.terminate()
+
+proc initGraphics() =
+  initGlfw()
   opengl.loadExtensions()
   glfw.windowHint(glfw.ContextVersionMajor, 3)
   glfw.windowHint(glfw.ContextVersionMinor, 3)
   glfw.windowHint(glfw.OpenglProfile, glfw.OpenglCoreProfile)
   glfw.windowHint(glfw.OpenglForwardCompat, glfw.True)
   glfw.windowHint(glfw.Resizable, glfw.False)
+
+proc main() =
+  let tty = pty.spawn()
+  # TODO React to errors
+  initGraphics()
+  defer: terminateGlfw()
   let window = glfw.createWindow(800, 600, "foo", nil, nil)
-  defer: window.destroyWindow()
-  discard window.setKeyCallback(keyCallback)
-  window.makeContextCurrent()
+  defer: glfw.destroyWindow(window)
+  discard glfw.setKeyCallback(window, keyCallback)
+  glfw.makeContextCurrent(window)
 
   glEnable(GL_CULL_FACE)
   glEnable(GL_BLEND)
