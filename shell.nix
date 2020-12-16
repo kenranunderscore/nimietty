@@ -1,17 +1,22 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import <nixpkgs> { } }:
 
-pkgs.mkShell {
-  buildInputs = [
-    pkgs.dash
-    pkgs.libGL
-    pkgs.freetype
-    # FIXME this obviously doesn't work on macOS
-    pkgs.xorg.libXcursor
-    pkgs.xorg.libXrandr
-    pkgs.xorg.libXinerama
-    pkgs.xorg.xinput
-    pkgs.xorg.libXi
-    pkgs.xorg.libXext
-    pkgs.xorg.libXxf86vm
+with pkgs;
+let
+  frameworks = darwin.apple_sdk.frameworks;
+  # We don't need GLFW3 here when using Nim's staticglfw library.
+  basePackages = [ dash freetype nim ];
+  darwinPackages = [ frameworks.Cocoa frameworks.Kernel ];
+  linuxPackages = [
+    libGL
+    xorg.libXcursor
+    xorg.libXrandr
+    xorg.libXinerama
+    xorg.xinput
+    xorg.libXi
+    xorg.libXext
+    xorg.libXxf86vm
   ];
+in mkShell {
+  buildInputs = basePackages ++ lib.optionals hostPlatform.isLinux linuxPackages
+    ++ lib.optionals hostPlatform.isDarwin darwinPackages;
 }
