@@ -1,4 +1,4 @@
-import staticglfw as glfw
+import glfw
 import opengl
 import freetype/freetype
 import posix
@@ -70,9 +70,9 @@ proc readPtyAndUpdateState(fds: ReaderFds) =
             inc(state.pos.y)
             wrapped = false
 
-proc keyCallback(window: glfw.Window, key: cint, scancode: cint, action: cint, modifiers: cint) {.cdecl.} =
-  if key == glfw.KEY_ESCAPE:
-    window.setWindowShouldClose(1)
+proc keyCallback(window: GLFWWindow, key: cint, scancode: cint, action: cint, modifiers: cint) {.cdecl.} =
+  if key == GLFWKey.Escape:
+    window.setWindowShouldClose(true)
 
 proc renderText(chars: Table[int, Character], vao: GLuint, vbo: GLuint, p: GLuint, text: string, x: GLfloat, y: GLfloat, scale: GLfloat, color: glm.Vec3[GLfloat]) =
   glUseProgram(p)
@@ -110,20 +110,20 @@ proc renderText(chars: Table[int, Character], vao: GLuint, vbo: GLuint, p: GLuin
 proc main() =
   let tty = pty.spawn()
   # TODO React to errors
-  discard glfw.init()
-  defer: glfw.terminate()
+  discard glfwInit()
+  defer: glfwTerminate()
   echo "GLFW initialized successfully"
   # FIXME Why don't the other "usual" window hints work?
   # Setting the version to anything higher than 3.1 or setting the core
   # profile will lead to nothing being rendered.
 
   opengl.loadExtensions()
-  glfw.windowHint(glfw.ContextVersionMajor, 3)
-  glfw.windowHint(glfw.ContextVersionMinor, 3)
-  glfw.windowHint(glfw.OpenglProfile, glfw.OpenglCoreProfile)
-  glfw.windowHint(glfw.OpenglForwardCompat, glfw.True)
-  glfw.windowHint(glfw.Resizable, glfw.False)
-  let window = glfw.createWindow(800, 600, "foo", nil, nil)
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3)
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3)
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE)
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE)
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE)
+  let window = glfwCreateWindow(800, 600, "foo", nil, nil)
   defer: window.destroyWindow()
   discard window.setKeyCallback(keyCallback)
   window.makeContextCurrent()
@@ -205,8 +205,8 @@ proc main() =
   createThread(reader, readPtyAndUpdateState, ReaderFds(pty: tty.masterFd, commPipe: pipeFds[0]))
   defer: joinThread(reader)
 
-  while glfw.windowShouldClose(window) == 0:
-    glfw.pollEvents()
+  while not glfw.windowShouldClose(window):
+    glfwPollEvents()
     glClearColor(0.2, 0.3, 0.3, 1.0)
     glClear(GL_COLOR_BUFFER_BIT)
     renderText(chars, vao, vbo, program, "This is sample text", 25, 25, 0.3, glm.vec3(GLfloat 0.5, 0.8, 0.2))
